@@ -3,7 +3,7 @@ from setuptools import find_packages
 
 setup(
     name='combina-dataset',
-    version='',
+    version='1.0',
     packages=find_packages(),
     url='',
     license='',
@@ -12,6 +12,10 @@ setup(
     description='',
     install_requires = [
         'sympy',
-        'scipy'
-    ]
+        'scipy',
+        'twine'
+    ],
+    entry_points = {
+        'console_scripts': ['combina-irredutiveis=main:main']
+    }
 )

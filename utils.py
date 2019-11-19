@@ -16,15 +16,22 @@ def _poly_para_matriz(pol):
     graus_coefs = pol.as_poly().as_dict()
 
     coefs = np.asarray([u.evalf() for u in graus_coefs.values()], dtype=float)
-    graus = list(graus_coefs.keys())
+    graus = [validate_degree_tuple(u) for u in graus_coefs.keys()]
 
-    gxs = [u[0] for u in graus]
-    gys = [u[1] for u in graus]
+    gxs = [u[0] or 0 for u in graus]
+    gys = [u[1] or 0 for u in graus]
 
     shape = max(gxs) + 1, max(gys) + 1
 
     matriz = coo_matrix((coefs, (gxs, gys)), shape)
-    return matriz / np.sum(coefs)
+    return matriz / np.max(np.abs(coefs))
+
+
+def validate_degree_tuple(u):
+    if len(u) == 2:
+        return u
+    else:
+        return u[0], 0
 
 
 def mapeia1ODE(a: Poly, p: Poly):
@@ -44,14 +51,14 @@ def mapeia1ODE(a: Poly, p: Poly):
 
     mdc = gcd(numerador, denominador)
 
-    numerador = (numerador / mdc).ratsimp().expand()
-    denominador = (denominador / mdc).ratsimp().expand()
+    numerador = (numerador / mdc).ratsimp().expand().as_poly()
+    denominador = (denominador / mdc).ratsimp().expand().as_poly()
 
-    g_p_x = p.degree(x)
-    g_p_y = p.degree(y)
+    g_p_x = p.as_poly().degree(x)
+    g_p_y = p.as_poly().degree(y)
 
-    g_a_x = a.degree(x)
-    g_a_y = a.degree(y)
+    g_a_x = a.as_poly().degree(x)
+    g_a_y = a.as_poly().degree(y)
 
     return dict(num=_poly_para_matriz(numerador),
                 den=_poly_para_matriz(denominador),
@@ -70,39 +77,35 @@ def mapeia1ODE(a: Poly, p: Poly):
                 g_a_y=g_a_y)
 
 
-def pre_carrega_caminhos(base_path: str):
+def pre_carrega_caminhos(base_path: str, excludes_path: str):
     return [{
                 'key': filename.split('.', 2)[0],
                 'caminho': os.path.join(dirpath, filename)
              }
             for (dirpath, dirs, files) in os.walk(base_path)
-            for filename in files]
+            for filename in files
+            if (excludes_path and excludes_path not in filename) or not excludes_path]
 
 
-def gera_irredutives(base_path: str, random=True, ciclico=True):
+def gera_irredutives(base_path: str, excludes_path: str = None, random=True, ciclico=True):
     """
     Carrega polinômios na pasta em questão
-    :param base_path:
+    :param base_path: Caminho onde estão os polinômios
+    :param excludes_path: Caminhho a ser ignorado
     :return:
     """
-    arquivos = pre_carrega_caminhos(base_path)
+    arquivos = pre_carrega_caminhos(base_path, excludes_path)
 
     if random:
-        arquivos = np.random.choice(arquivos)
+        arquivos = np.random.permutation(arquivos)
 
     if ciclico:
         arquivos = cycle(arquivos)
 
     for arquivo in arquivos:
+
         resultado = dict()
         resultado['key'] = arquivo['key']
-        resultado['pol'] = np.load(arquivo['caminho'])[0]
+        resultado['pol'] = np.load(arquivo['caminho'], allow_pickle=True)[0]
 
         yield resultado
-
-
-def infinitenumbers():
-    count = 0
-    while True:
-        yield count
-        count += 1
